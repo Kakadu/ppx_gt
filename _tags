@@ -1,0 +1,7 @@
+#true: warn(@5@8@10@11@12@14@23@24@26@29@40), bin_annot, safe_string
+true:  bin_annot, safe_string
+
+"src": include
+<src/*.{ml,mli,byte,native}>: package(ppx_tools.metaquot), package(ppx_deriving.api)
+<src_test/test_ppx_m*.{ml,byte,native}>: debug, package(oUnit), use_morphism
+<src_test/test_ppx_gt.{ml,byte,native}>: debug, package(oUnit), use_gt
