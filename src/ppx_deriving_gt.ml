@@ -214,8 +214,15 @@ let str_of_type ~options ~path ({ ptype_loc = loc } as type_decl) =
 
       in
       let default_params =
-        [ [%type: 'a]; [%type: 'ia]; [%type: 'sa]; [%type: 'inh]; [%type: 'syn] ]
-        |> List.map (fun x -> (x,Invariant) )
+        let ps = type_decl.ptype_params |> List.map (fun (t,_) ->
+          match t.ptyp_desc with
+          | Ptyp_var n -> Typ.([var n; var @@ "i"^n; var @@ "s"^n])
+          | _ -> raise_errorf "default_params: can't construct"
+        )
+        in
+        let ps = List.concat ps in
+        let ps = ps @ [ [%type: 'inh]; [%type: 'syn] ] in
+        List.map (fun x -> (x,Invariant) ) ps
       in
       let using_type =
         (* generation type specification by type declaration *)
@@ -256,9 +263,7 @@ let str_of_type ~options ~path ({ ptype_loc = loc } as type_decl) =
           let args2 = [Typ.var "inh"] @ args2 in
           let ts = List.fold_right (Typ.arrow "") args2 (Typ.var "syn") in
 
-          Ctf.method_ (constr_name) Public Virtual ts
-            (* (Cfk_concrete (Fresh, *)
-            (*                 [%expr 1])) *)
+          Ctf.method_ (constr_name) Public Concrete ts
         ) constrs @
         [
           let ts = List.map (fun (t,_) -> arr_of_param t) type_decl.ptype_params in
