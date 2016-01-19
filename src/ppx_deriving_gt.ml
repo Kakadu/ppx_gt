@@ -201,6 +201,7 @@ let str_of_type ~options ~path ({ ptype_loc = loc } as type_decl) =
   let quoter = Ppx_deriving.create_quoter () in
   let path = Ppx_deriving.path_of_type_decl ~path type_decl in
 
+  let typename = type_decl.ptype_name.txt in
   match type_decl.ptype_kind with
   | Ptype_variant constrs ->
       let fields =
@@ -212,9 +213,69 @@ let str_of_type ~options ~path ({ ptype_loc = loc } as type_decl) =
         )
 
       in
+      let default_params =
+        [ [%type: 'a]; [%type: 'ia]; [%type: 'sa]; [%type: 'inh]; [%type: 'syn] ]
+        |> List.map (fun x -> (x,Invariant) )
+      in
+      let using_type =
+        (* generation type specification by type declaration *)
+        Typ.constr (lid typename) (List.map fst @@ type_decl.ptype_params)
+      in
+      let arr_of_param t =
+        (* does from 'a the 'ia -> 'a -> 'sa *)
+        let open Typ in
+        match t.ptyp_desc with
+        | Ptyp_var n ->
+            (n, [], [%type: [%t var@@ "i"^n] -> [%t var n] -> [%t var @@ "s"^n]] )
+        | _ ->
+              raise_errorf "arr_of_param: not all type params are supported" deriver
+      in
+      let params_obj =
+        let f (t,_) = arr_of_param t in
+        Typ.object_ (List.map f type_decl.ptype_params) Closed
+      in
+      let tt_methods =
+        List.map (fun { pcd_name = { txt = name' }; pcd_args } ->
+          (* for every type constructor *)
+          let constr_name = "c_" ^ name' in
+          let args2 = pcd_args |> List.map (fun ({ ptyp_desc; _ } as typ) ->
+            match ptyp_desc with
+            | Ptyp_var a  ->
+                [%type: ([%t Typ.var @@ "i"^a],
+                         [%t typ ],
+                         [%t Typ.var @@ "s"^a],
+                         [%t params_obj]) GT.a ]
+            | Ptyp_constr _ -> typ
+            | _ -> raise_errorf "Some cases are not supported when we look at constructor's params"
+          )
+          in
+          let args2 = [%type: ('inh,[%t using_type],'syn, [%t params_obj]) GT.a ]
+              (* [Typ.constr (lid "GT.a") [[%typ]] *)
+                      :: args2
+          in
+          let args2 = [Typ.var "inh"] @ args2 in
+          let ts = List.fold_right (Typ.arrow "") args2 (Typ.var "syn") in
+
+          Ctf.method_ (constr_name) Public Virtual ts
+            (* (Cfk_concrete (Fresh, *)
+            (*                 [%expr 1])) *)
+        ) constrs @
+        [
+          let ts = List.map (fun (t,_) -> arr_of_param t) type_decl.ptype_params in
+          let init =
+            [%type: 'inh -> [%t using_type] -> 'syn ]
+          in
+          Ctf.method_ ("t_" ^ typename)  Public Concrete
+            (List.fold_right (fun (_,_,x) acc -> Typ.arrow "" x acc) ts init)
+           (* [%type: ('ia -> 'a -> 'sa) ->  *)
+           (* ] *)
+        ]
+      in
+      let any_typ = { ptyp_desc=Ptyp_any; ptyp_loc=Location.none; ptyp_attributes=[] } in
       [
-        Str.class_type [Ci.mk (Location.mknoloc "asdf") @@
-                        Cty.signature (Csig.mk [%type: int] [])]
+        Str.class_type [Ci.mk ~virt:Virtual ~params:default_params
+                          (Location.mknoloc @@ type_decl.ptype_name.txt ^ "_tt") @@
+                        Cty.signature (Csig.mk any_typ tt_methods)]
       ]
       (* [%stri class type virtual ['a, 'ia, 'sa, 'inh, 'syn] logic_tt = *)
 (*                [%e Exp.object_ {pcstr_self=Ast_helper.Pat.any (); pcstr_field = fields} ] *)
