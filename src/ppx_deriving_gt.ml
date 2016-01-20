@@ -245,8 +245,8 @@ let str_of_type ~options ~path ({ ptype_loc = loc } as type_decl) =
         (* makes ('a,'ia,'sa,...,'inh,'syn)#typename_tt  *)
         Typ.class_ (lid @@ typename^"_tt") (List.map fst default_params)
       in
-      let tt_methods =
-        List.map (fun { pcd_name = { txt = name' }; pcd_args } ->
+      let (tt_methods, t_methods) =
+        let xs = List.map (fun { pcd_name = { txt = name' }; pcd_args } ->
           (* for every type constructor *)
           let constr_name = "c_" ^ name' in
           let args2 = pcd_args |> List.map (fun ({ ptyp_desc; _ } as typ) ->
@@ -267,8 +267,12 @@ let str_of_type ~options ~path ({ ptype_loc = loc } as type_decl) =
           let args2 = [Typ.var "inh"] @ args2 in
           let ts = List.fold_right (Typ.arrow "") args2 (Typ.var "syn") in
 
-          Ctf.method_ (constr_name) Public Concrete ts
-        ) constrs @
+          (Ctf.method_ constr_name Public Concrete ts,
+           Cf.method_  (mknoloc constr_name) Public (Cfk_virtual ts) )
+        ) constrs
+        in
+        let (tts, ts) = List.split xs in
+        let tts = tts @
         [
           let ts = List.map (fun (t,_) -> arr_of_param t) type_decl.ptype_params in
           let init =
@@ -276,9 +280,18 @@ let str_of_type ~options ~path ({ ptype_loc = loc } as type_decl) =
           in
           Ctf.method_ ("t_" ^ typename)  Public Concrete
             (List.fold_right (fun (_,_,x) acc -> Typ.arrow "" x acc) ts init)
-           (* [%type: ('ia -> 'a -> 'sa) ->  *)
-           (* ] *)
         ]
+        in
+
+        let main_mapper_body =
+          (* TODO: generate based on type parameters *)
+          [%expr fun fa -> GT.transform logic fa this]
+        in
+        let ts = ts @ [ Cf.method_ (mknoloc @@ "t_"^typename) Public
+                          (Cfk_concrete (Fresh, main_mapper_body))
+                      ]
+        in
+        (tts, ts)
       in
       let any_typ = { ptyp_desc=Ptyp_any; ptyp_loc=Location.none; ptyp_attributes=[] } in
 
@@ -318,8 +331,6 @@ let str_of_type ~options ~path ({ ptype_loc = loc } as type_decl) =
                    @@ List.map (fun x -> ("",x))
                    ([ [%expr inh]; [%expr (GT.make self subj tpo)] ] @ app_args)
                 )
-            (* [%expr 1] *)
-
           )
         in
         [%expr
@@ -329,14 +340,9 @@ let str_of_type ~options ~path ({ ptype_loc = loc } as type_decl) =
             and tpo = [%e tpo ] in
             [%e match_body]
           in
-            (* match subj with *)
-            (* | Var p0 -> trans#c_Var inh (GT.make self subj tpo) p0 *)
-            (* | Value p0 -> *)
-            (*     trans#c_Value inh (GT.make self subj tpo) (GT.make fa p0 tpo) in *)
           { GT.gcata = logic_gcata; GT.plugins = () }
 
         ]
-        (* (Exp.ident @@ (lid "aaa")) *)
       in
 
       [
@@ -344,11 +350,10 @@ let str_of_type ~options ~path ({ ptype_loc = loc } as type_decl) =
                           (Location.mknoloc @@ type_decl.ptype_name.txt ^ "_tt") @@
                         Cty.signature (Csig.mk any_typ tt_methods)]
       ; Str.value Nonrecursive [Vb.mk (Pat.(constraint_ (var @@ mknoloc typename) gt_repr_typ)) gt_repr_body]
+      ; Str.class_ [Ci.mk ~virt:Virtual ~params:default_params (mknoloc @@ typename^"_t") @@
+                    Cl.structure (Cstr.mk (Pat.var @@ mknoloc "this") t_methods)
+                   ]
       ]
-      (* [%stri class type virtual ['a, 'ia, 'sa, 'inh, 'syn] logic_tt = *)
-(*                [%e Exp.object_ {pcstr_self=Ast_helper.Pat.any (); pcstr_field = fields} ] *)
-(* ] *)
-(* ] *)
   | _ -> raise_errorf ~loc "%s: some error" deriver
   (*
   let prettyprinter =
