@@ -26,7 +26,7 @@
  *
  *)
 
-
+open Printf
 open Longident
 open Location
 open Asttypes
@@ -198,13 +198,13 @@ let rec expr_of_typ quoter typ =
 
 let str_of_type ~options ~path ({ ptype_loc = loc } as type_decl) =
   let _ = parse_options options in
-  let quoter = Ppx_deriving.create_quoter () in
+  let _quoter = Ppx_deriving.create_quoter () in
   let path = Ppx_deriving.path_of_type_decl ~path type_decl in
 
   let typename = type_decl.ptype_name.txt in
   match type_decl.ptype_kind with
   | Ptype_variant constrs ->
-      let fields =
+      let _fields =
         constrs |> List.map (fun { pcd_name = { txt = name' }; pcd_args } ->
           let constr_name = Ppx_deriving.expand_path ~path name' in
           Ast_helper.Cf.method_ (Location.mknoloc constr_name) Public
@@ -240,6 +240,10 @@ let str_of_type ~options ~path ({ ptype_loc = loc } as type_decl) =
       let params_obj =
         let f (t,_) = arr_of_param t in
         Typ.object_ (List.map f type_decl.ptype_params) Closed
+      in
+      let subclass_obj =
+        (* makes ('a,'ia,'sa,...,'inh,'syn)#typename_tt  *)
+        Typ.class_ (lid @@ typename^"_tt") (List.map fst default_params)
       in
       let tt_methods =
         List.map (fun { pcd_name = { txt = name' }; pcd_args } ->
@@ -277,10 +281,69 @@ let str_of_type ~options ~path ({ ptype_loc = loc } as type_decl) =
         ]
       in
       let any_typ = { ptyp_desc=Ptyp_any; ptyp_loc=Location.none; ptyp_attributes=[] } in
+
+      let gt_repr_typ =
+        let tail = [%type: 'inh -> [%t using_type] -> 'syn ] in
+        [%type:
+                (('ia -> 'a -> 'sa) ->
+                 [%t subclass_obj ] -> [%t tail], unit) GT.t ]
+      in
+      let gt_repr_body =
+        let typename_gcata = typename^"_gcata" in
+        let tpo_meths =
+          let f ({ptyp_desc; _},_) =
+            match ptyp_desc with
+            | Ptyp_var v -> Cf.method_ (mknoloc v) Public (Cfk_concrete (Fresh, Exp.ident @@ lid ("f"^v)))
+            | _ -> raise_errorf "Some cases are not supported when creating tpo methods"
+          in
+          List.map f type_decl.ptype_params
+        in
+        let tpo = Exp.object_ (Cstr.mk (Pat.any ()) tpo_meths ) in
+        let match_body =
+          Exp.match_ (Exp.ident @@ lid "subj") @@
+          ListLabels.map constrs ~f:(fun { pcd_name = { txt = name' }; pcd_args } ->
+            let argnames = List.mapi (fun n _ -> sprintf "p%d" n) pcd_args in
+            let args_tuple = Pat.tuple@@ List.map (fun s-> Pat.var @@ mknoloc s) argnames in
+
+            let app_args = List.map2 (fun argname arg ->
+              match arg.ptyp_desc with
+              | Ptyp_var v -> [%expr GT.make [%e Exp.ident @@ lid @@ "f"^v] [%e Exp.ident @@ lid argname] tpo]
+              | Ptyp_constr _ -> Exp.ident @@ lid argname
+              | _ -> raise_errorf "Some cases are not supported when gnerating application in gcata"
+            ) argnames pcd_args
+            in
+
+            Exp.case (Pat.construct (lid name') (Some args_tuple)) @@
+            Exp.(apply (send (ident @@ lid "trans") ("c_"^name') )
+                   @@ List.map (fun x -> ("",x))
+                   ([ [%expr inh]; [%expr (GT.make self subj tpo)] ] @ app_args)
+                )
+            (* [%expr 1] *)
+
+          )
+        in
+        [%expr
+          let rec [%p (Pat.var @@ mknoloc typename_gcata) ] = fun fa (* TODO: generate patterns there *)
+            trans inh subj ->
+            let rec self = [%e Exp.ident @@ lid typename_gcata] fa trans
+            and tpo = [%e tpo ] in
+            [%e match_body]
+          in
+            (* match subj with *)
+            (* | Var p0 -> trans#c_Var inh (GT.make self subj tpo) p0 *)
+            (* | Value p0 -> *)
+            (*     trans#c_Value inh (GT.make self subj tpo) (GT.make fa p0 tpo) in *)
+          { GT.gcata = logic_gcata; GT.plugins = () }
+
+        ]
+        (* (Exp.ident @@ (lid "aaa")) *)
+      in
+
       [
         Str.class_type [Ci.mk ~virt:Virtual ~params:default_params
                           (Location.mknoloc @@ type_decl.ptype_name.txt ^ "_tt") @@
                         Cty.signature (Csig.mk any_typ tt_methods)]
+      ; Str.value Nonrecursive [Vb.mk (Pat.(constraint_ (var @@ mknoloc typename) gt_repr_typ)) gt_repr_body]
       ]
       (* [%stri class type virtual ['a, 'ia, 'sa, 'inh, 'syn] logic_tt = *)
 (*                [%e Exp.object_ {pcstr_self=Ast_helper.Pat.any (); pcstr_field = fields} ] *)
