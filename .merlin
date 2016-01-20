@@ -1,7 +1,7 @@
 PKG ppx_deriving
 PKG compiler-libs
-PKG ppx_tools
+PKG ppx_tools ppx_tools.metaquot
+
 SRC src
 SRC src_test
-B _build/src
-B _build/src_test
+B _build/**
