@@ -13,7 +13,7 @@ let () = dispatch (
     A (ppx_loc ^ "/ppx_deriving_runtime.cmxa") ;
 
     flag ["ocaml"; "compile"; "use_morphism"] &
-    S[A"-ppx"; A"ocamlfind ppx_import/ppx_import";
+    S[(* A"-ppx"; A"ocamlfind ppx_import/ppx_import"; *)
       A"-I"; A ppx_loc ;
       A"-ppx"; A("ocamlfind ppx_deriving/ppx_deriving "^
                  "src/ppx_deriving_folder.cma "^
@@ -28,7 +28,7 @@ let () = dispatch (
     A (ppx_loc ^ "/ppx_deriving_gt.cmxa") ;
 
     flag ["ocaml"; "compile"; "use_gt"] &
-    S[A"-ppx"; A"ocamlfind ppx_import/ppx_import";
+    S[(* A"-ppx"; A"ocamlfind ppx_import/ppx_import"; *)
       A"-I"; A ppx_loc ;
       A"-ppx"; A("ocamlfind ppx_deriving/ppx_deriving "^
                  "src/ppx_deriving_gt.cma "^

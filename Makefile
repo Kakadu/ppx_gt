@@ -8,8 +8,7 @@ dry_run: build
 
 test: build
 	rm -rf _build/src_test/
-	ocamlbuild -j 0 -use-ocamlfind -classic-display \
-						 src_test/test_ppx_morphism.byte src_test/test_ppx_gt.byte --
+	ocamlbuild -j 0 -use-ocamlfind -classic-display src_test/test_ppx_gt.byte
 
 clean:
 	ocamlbuild -clean

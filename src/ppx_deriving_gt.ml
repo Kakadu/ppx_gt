@@ -268,7 +268,7 @@ let str_of_type ~options ~path ({ ptype_loc = loc } as type_decl) =
                       :: args2
           in
           let args2 = [Typ.var "inh"] @ args2 in
-          let ts = List.fold_right (Typ.arrow "") args2 (Typ.var "syn") in
+          let ts = List.fold_right (Typ.arrow Parr_simple) args2 (Typ.var "syn") in
 
           (Ctf.method_ constr_name Public Concrete ts,
            Cf.method_  (mknoloc constr_name) Public (Cfk_virtual ts) )
@@ -282,7 +282,7 @@ let str_of_type ~options ~path ({ ptype_loc = loc } as type_decl) =
                       [%type: 'inh -> [%t using_type] -> 'syn ]
                     in
                     Ctf.method_ ("t_" ^ typename)  Public Concrete
-                      (List.fold_right (fun (_,_,x) acc -> Typ.arrow "" x acc) ts init)
+                      (List.fold_right (fun (_,_,x) acc -> Typ.arrow Parr_simple x acc) ts init)
                   ]
         in
 
@@ -332,7 +332,7 @@ let str_of_type ~options ~path ({ ptype_loc = loc } as type_decl) =
 
             Exp.case (Pat.construct (lid name') (Some args_tuple)) @@
             Exp.(apply (send (ident @@ lid "trans") ("c_"^name') )
-                 @@ List.map (fun x -> ("",x))
+                 @@ List.map (fun x -> (Papp_simple,x))
                    ([ [%expr inh]; [%expr (GT.make self subj tpo)] ] @ app_args)
                 )
           )
@@ -370,7 +370,7 @@ let str_of_type ~options ~path ({ ptype_loc = loc } as type_decl) =
             let args = List.mapi (fun n _ -> sprintf "p%d" n) pcd_args in
 
             let body = Exp.constant (Const_string (sprintf "%s(<notimplemented>)" name', None)) in
-            let e = List.fold_right (fun name acc -> Exp.fun_ "" None (Pat.construct (lid name) None) acc) args body in
+            let e = List.fold_right (fun name acc -> Exp.fun_ Parr_simple None (Pat.construct (lid name) None) acc) args body in
             let e = [%expr fun inh subj -> [%e e] ] in
 
             Cf.method_ (mknoloc @@ "c_"^name') Public (Cfk_concrete (Fresh, e))
@@ -387,7 +387,7 @@ let str_of_type ~options ~path ({ ptype_loc = loc } as type_decl) =
                           Cty.signature (Csig.mk any_typ [])
                          ]
         ; Str.class_ [Ci.mk ~virt:Concrete ~params:[Typ.var "a",Invariant] (mknoloc proto_class_name)
-                        (Cl.fun_ "" None (Pat.var @@ mknoloc "env") @@
+                        (Cl.fun_ Parr_simple None (Pat.var @@ mknoloc "env") @@
                          Cl.structure (Cstr.mk (Pat.var @@ mknoloc "this") show_proto_meths)
                         )
                      ]
@@ -395,7 +395,7 @@ let str_of_type ~options ~path ({ ptype_loc = loc } as type_decl) =
                         (Cl.let_ Nonrecursive [Vb.mk (Pat.construct (lid "self") None) [%expr Obj.magic (ref ())] ] @@
                          Cl.structure (Cstr.mk (Pat.var @@ mknoloc "this")
                                          [ inherit_field
-                                         ; Cf.inherit_ Fresh (Cl.apply (Cl.constr (lid proto_class_name) [Typ.var "a"]) [("",[%expr self])]) None
+                                         ; Cf.inherit_ Fresh (Cl.apply (Cl.constr (lid proto_class_name) [Typ.var "a"]) [(Papp_simple,[%expr self])]) None
                                          ; Cf.initializer_ [%expr self := (this :> [%t Typ.constr (lid show_typename_t) [Typ.var "a"] ]) ]
                                          ])
                         )
