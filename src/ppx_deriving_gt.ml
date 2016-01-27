@@ -320,7 +320,11 @@ let str_of_type ~options ~path ({ ptype_loc = loc } as type_decl) =
           Exp.match_ (Exp.ident @@ lid "subj") @@
           ListLabels.map constrs ~f:(fun { pcd_name = { txt = name' }; pcd_args } ->
             let argnames = List.mapi (fun n _ -> sprintf "p%d" n) pcd_args in
-            let args_tuple = Pat.tuple@@ List.map (fun s-> Pat.var @@ mknoloc s) argnames in
+            let args_tuple =
+              match argnames with
+              | [single_arg] -> Pat.var @@ mknoloc single_arg
+              | _ -> Pat.tuple @@ List.map (fun s-> Pat.var @@ mknoloc s) argnames
+            in
 
             let app_args = List.map2 (fun argname arg ->
               match arg.ptyp_desc with
@@ -370,7 +374,7 @@ let str_of_type ~options ~path ({ ptype_loc = loc } as type_decl) =
             let args = List.mapi (fun n _ -> sprintf "p%d" n) pcd_args in
 
             let body = Exp.constant (Const_string (sprintf "%s(<notimplemented>)" name', None)) in
-            let e = List.fold_right (fun name acc -> Exp.fun_ Parr_simple None (Pat.construct (lid name) None) acc) args body in
+            let e = List.fold_right (fun name acc -> Exp.fun_ Parr_simple None (Pat.var @@ mknoloc name) acc) args body in
             let e = [%expr fun inh subj -> [%e e] ] in
 
             Cf.method_ (mknoloc @@ "c_"^name') Public (Cfk_concrete (Fresh, e))
@@ -392,7 +396,7 @@ let str_of_type ~options ~path ({ ptype_loc = loc } as type_decl) =
                         )
                      ]
         ; Str.class_ [Ci.mk ~virt:Concrete ~params:[Typ.var "a",Invariant] (mknoloc show_typename_t)
-                        (Cl.let_ Nonrecursive [Vb.mk (Pat.construct (lid "self") None) [%expr Obj.magic (ref ())] ] @@
+                        (Cl.let_ Nonrecursive [Vb.mk (Pat.var @@ mknoloc "self") [%expr Obj.magic (ref ())] ] @@
                          Cl.structure (Cstr.mk (Pat.var @@ mknoloc "this")
                                          [ inherit_field
                                          ; Cf.inherit_ Fresh (Cl.apply (Cl.constr (lid proto_class_name) [Typ.var "a"]) [(Papp_simple,[%expr self])]) None
@@ -403,10 +407,13 @@ let str_of_type ~options ~path ({ ptype_loc = loc } as type_decl) =
           (* gcata for show *)
         ; Str.value Nonrecursive
             [Vb.mk (Pat.(constraint_ (var @@ mknoloc typename) gt_repr_typ_show))
-               [%expr { GT.gcata = [%e Exp.ident @@ lid @@sprintf "%s.GT.gcata" typename];
-                        GT.plugins = object
-                          method show a = GT.transform [%e Exp.ident @@ lid typename] (GT.lift a) [%e Exp.new_ (lid show_typename_t)] ()
-                        end }
+               [%expr
+                   { GT.gcata = [%e Exp.(field (ident @@ lid typename) (lid "GT.gcata")) ];
+                     GT.plugins = object
+                        method show a = GT.transform [%e Exp.ident @@ lid typename]
+                                                     (GT.lift a)
+                                                     [%e Exp.new_ (lid show_typename_t)] ()
+                                  end }
                ] ]
         ]
       in
