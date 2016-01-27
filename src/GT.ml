@@ -90,14 +90,14 @@ class virtual ['inh, 'syn] int_t =
 
 class show_proto_int env =
   object (this)
-    inherit [unit, string] int [@@gt_inher]
+    inherit [unit, string] int_t (* [@@gt_inher] *)
     method t_int inh x = string_of_int x
   end
 
 class show_int_t =
   let self = Obj.magic (ref ()) in
   object (this)
-    inherit [unit, string] int[@@gt_inher]
+    inherit [unit, string] int_t(* [@@gt_inher] *)
     inherit show_proto_int self
     initializer (:=) self (this :> show_int_t)
   end
@@ -130,14 +130,14 @@ class virtual ['inh, 'syn] string_t =
 
 class show_proto_string env =
   object (this)
-    inherit [unit, string] string[@@gt_inher]
+    inherit [unit, string] string_t(* [@@gt_inher] *)
     method t_string inh x = string_of_string x
   end
 
 class show_string_t =
   let self = Obj.magic (ref ()) in
   object (this)
-    inherit [unit, string] string [@@ gt_inher]
+    inherit [unit, string] string_t (* [@@ gt_inher] *)
     inherit show_proto_string self
     initializer (:=) self (this :> show_string_t)
   end
@@ -170,14 +170,14 @@ class virtual ['inh, 'syn] unit_t =
 
 class show_proto_unit env =
   object (this)
-    inherit [unit, string] unit[@@gt_inher]
+    inherit [unit, string] unit_t(* [@@gt_inher] *)
     method t_unit inh x = string_of_unit x
   end
 
 class show_unit_t =
   let self = Obj.magic (ref ()) in
   object (this)
-    inherit [unit, string] unit[@@gt_inher]
+    inherit [unit, string] unit_t(* [@@gt_inher] *)
     inherit show_proto_unit self
     initializer (:=) self (this :> show_unit_t)
   end
@@ -237,7 +237,7 @@ class virtual ['a, 'ia, 'sa, 'inh, 'syn] list_t =
 
 class ['a] show_list_t =
   object
-    inherit ['a, unit, string, unit, string] list[@@gt_inher]
+    inherit ['a, unit, string, unit, string] list_t(* [@@gt_inher] *)
     method c_Nil  _ _      = ""
     method c_Cons _ _ x xs = x.fx () ^ (match xs.x with [] -> "" | _ -> ", " ^ xs.fx ())
   end
@@ -286,7 +286,7 @@ class virtual ['a, 'ia, 'sa, 'inh, 'syn] option_t =
 
 class ['a] show_option_t =
   object
-    inherit ['a, unit, string, unit, string] option[@@gt_inher]
+    inherit ['a, unit, string, unit, string] option_t(* [@@gt_inher] *)
     method c_None  _ _  = "None"
     method c_Some _ _ x = "Some (" ^ x.fx () ^ ")"
   end
@@ -332,7 +332,7 @@ class virtual ['a, 'ia, 'sa, 'b, 'ib, 'sb, 'inh, 'syn] pair_t =
 
 class ['a, 'b] show_pair_t =
   object
-    inherit ['a, unit, string, 'b, unit, string, unit, string] pair[@@gt_inher]
+    inherit ['a, unit, string, 'b, unit, string, unit, string] pair_t(* [@@gt_inher] *)
     method c_Pair _ _ x y = "(" ^ x.fx () ^ ", " ^ y.fx () ^ ")"
   end
 
