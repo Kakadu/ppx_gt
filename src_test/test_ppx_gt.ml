@@ -1,5 +1,9 @@
-type 'a logic = Var of GT.int | Value of 'a [@@deriving gt { show } ]
+type 'a logic = Var of GT.int | Value of 'a * string [@@deriving gt { show } ]
 
+type 'a megalist = Nil_ | Cons of 'a * 'a megalist  [@@deriving gt { show } ]
+let () =
+  print_endline @@ GT.(show logic @@ show megalist @@ show int)
+                     (Value (Cons (5, Nil),"a") )
 (* type ident = [`Var of string] [@@ deriving gt] *)
 
 (* class ['v] ident_eval = object *)

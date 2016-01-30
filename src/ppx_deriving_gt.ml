@@ -198,6 +198,15 @@ let rec expr_of_typ quoter typ =
       raise_errorf ~loc:ptyp_loc "%s cannot be derived for %s"
                    deriver (Ppx_deriving.string_of_core_type typ)
 
+module Exp = struct
+  include Exp
+
+  let make_pair a b = tuple [a;b]
+  let make_list xs =
+    List.fold_right (fun e acc -> construct (lid "::") (Some (make_pair e acc)) ) xs
+                                            (Exp.construct (lid "[]") None)
+
+end
 
 let str_of_type ~options ~path ({ ptype_loc = loc } as type_decl) =
   let { gt_show; _ } = parse_options options in
@@ -322,8 +331,9 @@ let str_of_type ~options ~path ({ ptype_loc = loc } as type_decl) =
             let argnames = List.mapi (fun n _ -> sprintf "p%d" n) pcd_args in
             let args_tuple =
               match argnames with
-              | [single_arg] -> Pat.var @@ mknoloc single_arg
-              | _ -> Pat.tuple @@ List.map (fun s-> Pat.var @@ mknoloc s) argnames
+              | [] -> None
+              | [single_arg] -> Some (Pat.var @@ mknoloc single_arg)
+              | _ -> Some (Pat.tuple @@ List.map (fun s-> Pat.var @@ mknoloc s) argnames)
             in
 
             let app_args = List.map2 (fun argname arg ->
@@ -334,7 +344,7 @@ let str_of_type ~options ~path ({ ptype_loc = loc } as type_decl) =
             ) argnames pcd_args
             in
 
-            Exp.case (Pat.construct (lid name') (Some args_tuple)) @@
+            Exp.case (Pat.construct (lid name') args_tuple) @@
             Exp.(apply (send (ident @@ lid "trans") ("c_"^name') )
                  @@ List.map (fun x -> (Papp_simple,x))
                    ([ [%expr inh]; [%expr (GT.make self subj tpo)] ] @ app_args)
@@ -348,7 +358,7 @@ let str_of_type ~options ~path ({ ptype_loc = loc } as type_decl) =
             and tpo = [%e tpo ] in
             [%e match_body]
           in
-          { GT.gcata = logic_gcata; GT.plugins = () }
+          { GT.gcata = [%e Exp.ident @@ lid typename_gcata]; GT.plugins = () }
 
         ]
       in
@@ -373,7 +383,35 @@ let str_of_type ~options ~path ({ ptype_loc = loc } as type_decl) =
           let f { pcd_name = { txt = name' }; pcd_args } =
             let args = List.mapi (fun n _ -> sprintf "p%d" n) pcd_args in
 
-            let body = Exp.constant (Const_string (sprintf "%s(<notimplemented>)" name', None)) in
+            let body =
+              let expr_of_arg reprname = function
+                | Ptyp_var _alpha ->
+                   [%expr [%e Exp.(field (ident @@ lid reprname) (lid "GT.fx")) ]
+                          () ]
+                | Ptyp_constr ({txt=Ldot (Lident "GT", "int");_}, []) ->
+                   [%expr GT.transform GT.int (new GT.show_int_t) () [%e Exp.ident @@ lid reprname] ]
+                | Ptyp_constr ({txt=Ldot (Lident "GT", "string");_}, [])
+                | Ptyp_constr ({txt=Lident "string";_}, []) ->
+                   [%expr GT.transform GT.string (new GT.show_string_t) () [%e Exp.ident @@ lid reprname] ]
+                | _ -> Exp.constant (Const_string ("<not_implemented>", None))
+              in
+              match List.combine args pcd_args with
+              | [] -> Exp.constant (Const_string (name', None))
+              | [(name,argt)] -> [%expr
+                            [%e Exp.constant (Const_string (name'^" ", None)) ] ^
+                            [%e expr_of_arg name argt.ptyp_desc ]
+                                 ]
+              | args ->
+                 let xs = List.map (fun (name,arg) -> expr_of_arg name arg.ptyp_desc) args in
+                 (* [%expr 1] *)
+                 [%expr
+                     [%e Exp.constant (Const_string (name'^" (", None)) ] ^
+                     (String.concat ", " [%e Exp.make_list xs ] ^ ")")
+                 ]
+                 (* List.fold_right (fun e acc -> Exp.construct (lid "::") Some (pe)None) xs *)
+                 (*                 (Exp.construct (lid "[]") None) *)
+                 (* assert false *)
+            in
             let e = List.fold_right (fun name acc -> Exp.fun_ Parr_simple None (Pat.var @@ mknoloc name) acc) args body in
             let e = [%expr fun inh subj -> [%e e] ] in
 
