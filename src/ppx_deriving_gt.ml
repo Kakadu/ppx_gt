@@ -297,7 +297,7 @@ let str_of_type ~options ~path ({ ptype_loc = loc } as type_decl) =
 
         let main_mapper_body =
           (* TODO: generate based on type parameters *)
-          [%expr fun fa -> GT.transform logic fa this]
+          [%expr fun fa -> GT.transform [%e Exp.ident @@ lid typename] fa this]
         in
         let ts = ts @ [ Cf.method_ (mknoloc @@ "t_"^typename) Public
                           (Cfk_concrete (Fresh, main_mapper_body))

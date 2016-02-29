@@ -30,6 +30,7 @@ let () = dispatch (
     flag ["ocaml"; "compile"; "use_gt"] &
     S[(* A"-ppx"; A"ocamlfind ppx_import/ppx_import"; *)
       A"-I"; A ppx_loc ;
+      (* A"-dsource"; *)
       A"-ppx"; A("ocamlfind ppx_deriving/ppx_deriving "^
                  "src/ppx_deriving_gt.cma "^
                  (std_deriver "ppx_deriving_show.cma")) ;
