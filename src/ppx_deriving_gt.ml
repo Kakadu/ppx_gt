@@ -64,7 +64,7 @@ let attr_opaque attrs =
   Ppx_deriving.(attrs |> attr ~deriver "opaque" |> Arg.get_flag ~deriver)
 
 let argn = Printf.sprintf "a%d"
-
+(*
 let pp_type_of_decl ~options ~path type_decl =
   let opts = parse_options options in
   let typ = Ppx_deriving.core_type_of_type_decl type_decl in
@@ -197,7 +197,7 @@ let rec expr_of_typ quoter typ =
     | { ptyp_loc } ->
       raise_errorf ~loc:ptyp_loc "%s cannot be derived for %s"
                    deriver (Ppx_deriving.string_of_core_type typ)
-
+      *)
 module Exp = struct
   include Exp
 
