@@ -262,13 +262,21 @@ let str_of_type ~options ~path ({ ptype_loc = loc } as type_decl) =
           (* for every type constructor *)
           let constr_name = "c_" ^ name' in
           let args2 = pcd_args |> List.map (fun ({ ptyp_desc; _ } as typ) ->
+            (* let (_:int) = ptyp_desc in *)
             match ptyp_desc with
+            | Ptyp_constr ({txt=Ldot (Lident "GT", "int"); _},[]) ->
+                [%type: GT.int]
+            | Ptyp_constr _ ->
+                [%type: ([%t Typ.var @@ "inh"],
+                         [%t typ],
+                         [%t Typ.var @@ "syn"],
+                         [%t params_obj]) GT.a ]
             | Ptyp_var a  ->
                 [%type: ([%t Typ.var @@ "i"^a],
                          [%t typ ],
                          [%t Typ.var @@ "s"^a],
                          [%t params_obj]) GT.a ]
-            | Ptyp_constr _ -> typ
+            (* | Ptyp_constr _ -> typ *)
             | _ -> raise_errorf "Some cases are not supported when we look at constructor's params"
           )
           in
@@ -339,7 +347,10 @@ let str_of_type ~options ~path ({ ptype_loc = loc } as type_decl) =
             let app_args = List.map2 (fun argname arg ->
               match arg.ptyp_desc with
               | Ptyp_var v -> [%expr GT.make [%e Exp.ident @@ lid @@ "f"^v] [%e Exp.ident @@ lid argname] tpo]
-              | Ptyp_constr _ -> Exp.ident @@ lid argname
+              | Ptyp_constr ({txt=Ldot (Lident "GT", "int"); _},[]) ->
+                  [%expr [%e Exp.ident @@ lid argname]]
+              | Ptyp_constr _ ->
+                 [%expr GT.make [%e Exp.ident @@ lid "self"] [%e Exp.ident @@ lid argname] tpo]
               | _ -> raise_errorf "Some cases are not supported when gnerating application in gcata"
             ) argnames pcd_args
             in
@@ -393,7 +404,9 @@ let str_of_type ~options ~path ({ ptype_loc = loc } as type_decl) =
                 | Ptyp_constr ({txt=Ldot (Lident "GT", "string");_}, [])
                 | Ptyp_constr ({txt=Lident "string";_}, []) ->
                    [%expr GT.transform GT.string (new GT.show_string_t) () [%e Exp.ident @@ lid reprname] ]
-                | _ -> Exp.constant (Const_string ("<not_implemented>", None))
+                | _ ->
+                    [%expr [%e Exp.(field (ident @@ lid reprname) (lid "GT.fx")) ] () ]
+                    (* Exp.constant (Const_string ("<not_implemented>", None)) *)
               in
               match List.combine args pcd_args with
               | [] -> Exp.constant (Const_string (name', None))
