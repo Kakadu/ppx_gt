@@ -115,6 +115,7 @@ let rec expr_of_typ quoter typ =
       [%expr fun _ -> Format.pp_print_string fmt "<fun>"]
     | { ptyp_desc = Ptyp_constr _ } ->
       let builtin = not (attr_nobuiltin typ.ptyp_attributes) in
+
       begin match builtin, typ with
       | true, [%type: unit]        -> [%expr fun () -> Format.pp_print_string fmt "()"]
       | true, [%type: int]         -> format "%d"
@@ -197,7 +198,7 @@ let rec expr_of_typ quoter typ =
     | { ptyp_loc } ->
       raise_errorf ~loc:ptyp_loc "%s cannot be derived for %s"
                    deriver (Ppx_deriving.string_of_core_type typ)
-      *)
+ *)
 module Exp = struct
   include Exp
 
@@ -359,17 +360,18 @@ let str_of_type ~options ~path ({ ptype_params=type_params } as root_type) =
           let constr_name = "c_" ^ name' in
           let args2 = pcd_args |> List.map (fun ({ ptyp_desc; _ } as typ) ->
             match ptyp_desc with
+            | Ptyp_var a  ->
+                [%type: ([%t Typ.var @@ "i"^a],
+                         [%t typ ],
+                         [%t Typ.var @@ "s"^a],
+                         [%t params_obj]) GT.a ]
+            | Ptyp_constr _ -> typ
             | Ptyp_constr ({txt=Lident "int"; _},[]) ->              [%type: int]
             | Ptyp_constr ({txt=Ldot (Lident "GT", "int"); _},[]) -> [%type: GT.int]
             | Ptyp_constr _ ->
                 [%type: ([%t Typ.var @@ "inh"],
                          [%t typ],
                          [%t Typ.var @@ "syn"],
-                         [%t params_obj]) GT.a ]
-            | Ptyp_var a  ->
-                [%type: ([%t Typ.var @@ "i"^a],
-                         [%t typ ],
-                         [%t Typ.var @@ "s"^a],
                          [%t params_obj]) GT.a ]
             | _ -> raise_errorf "Some cases are not supported when we look at constructor's params"
           )
@@ -506,7 +508,35 @@ let str_of_type ~options ~path ({ ptype_params=type_params } as root_type) =
           let f { pcd_name = { txt = name' }; pcd_args } =
             let args = List.mapi (fun n _ -> sprintf "p%d" n) pcd_args in
 
-            let body =
+            let body = (*
+              let expr_of_arg reprname =
+                let f x = match x with
+                  | [%type: int] -> assert false
+                in
+                let rec helper reprexpr = function
+                | Ptyp_var _alpha ->
+                   [%expr [%e Exp.(field reprexpr (lid "GT.fx")) ] () ]
+
+                | Ptyp_constr ({txt=Lident "int";_}, [])
+                | Ptyp_constr ({txt=Ldot (Lident "GT", "int");_}, []) ->
+                   [%expr GT.transform GT.int (new GT.show_int_t) () [%e reprexpr] ]
+                | Ptyp_constr ({txt=Ldot (Lident "GT", "string");_}, [])
+                | Ptyp_constr ({txt=Lident "string";_}, []) ->
+                   [%expr GT.transform GT.string (new GT.show_string_t) () reprexpr ]
+                | Ptyp_constr ({txt;_}, params) when (txt = Lident typename (* && params = List.map fst type_params *)) ->
+                  [%expr [%e Exp.(field (ident @@ lid reprname) (lid "GT.fx")) ] () ]
+                (* | typ when typ = using_type.ptyp_desc -> *)
+                (*   [%expr [%e Exp.(field (ident @@ lid reprname) (lid "GT.fx")) ] () ] *)
+                 | Ptyp_constr ({txt=Lident cname;_}, [param1]) ->
+                   [%expr GT.transform [%e Exp.ident @@ lid cname] [%e helper reprexpr param1.ptyp_desc ] [%e Exp.ident @@ lid @@ sprintf "show_%s_t" cname ] ]
+                  (* assert false *)
+
+                |  _ ->
+                  [%expr [%e Exp.(field (ident @@ lid reprname) (lid "GT.fx")) ] () ]
+                  (* assert false *)
+                in
+                helper Exp.(ident @@ lid reprname)
+              in *)
               let expr_of_arg reprname = function
                 | Ptyp_var _alpha ->
                    [%expr [%e Exp.(field (ident @@ lid reprname) (lid "GT.fx")) ]
@@ -519,7 +549,6 @@ let str_of_type ~options ~path ({ ptype_params=type_params } as root_type) =
                    [%expr GT.transform GT.string (new GT.show_string_t) () [%e Exp.ident @@ lid reprname] ]
                 | _ ->
                     [%expr [%e Exp.(field (ident @@ lid reprname) (lid "GT.fx")) ] () ]
-                    (* Exp.constant (Const_string ("<not_implemented>", None)) *)
               in
               match List.combine args pcd_args with
               | [] -> Exp.constant (Const_string (name', None))
@@ -543,7 +572,7 @@ let str_of_type ~options ~path ({ ptype_params=type_params } as root_type) =
 
             Cf.method_ (mknoloc @@ "c_"^name') Public (Cfk_concrete (Fresh, e))
           in
-          inherit_field :: List.map f constrs
+          inherit_field :: List.map f (List.rev constrs)
         in
 
         let gt_repr_typ_show =
@@ -572,7 +601,7 @@ let str_of_type ~options ~path ({ ptype_params=type_params } as root_type) =
                         (Cl.fun_ Parr_simple None (Pat.var @@ mknoloc "env") @@
                          Cl.structure (Cstr.mk (Pat.var @@ mknoloc "this") show_proto_meths)
                         )
-                     ]
+                     ](*
         ; Str.class_ [Ci.mk ~virt:Concrete ~params:[Typ.var "a",Invariant] (mknoloc show_typename_t)
                         (Cl.let_ Nonrecursive [Vb.mk (Pat.var @@ mknoloc "self") [%expr Obj.magic (ref ())] ] @@
                          Cl.structure (Cstr.mk (Pat.var @@ mknoloc "this")
@@ -600,6 +629,7 @@ let str_of_type ~options ~path ({ ptype_params=type_params } as root_type) =
                           (* ] *)
                      end }
                ] ]
+            *)
         ]
       in
 
