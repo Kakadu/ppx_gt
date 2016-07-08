@@ -200,11 +200,7 @@ let rec expr_of_typ quoter typ =
                    deriver (Ppx_deriving.string_of_core_type typ)
  *)
 
-let papp_simple = ""
-let parr_simple = ""
-
-(* let papp_simple = Papp_simple *)
-(* let parr_simple = Parr_simple *)
+open Parsetree_hack
 
 module Exp = struct
   include Exp

@@ -1,3 +1,5 @@
+/src/parsetree_hack.ml
+
 *~
 *.native
 *.byte

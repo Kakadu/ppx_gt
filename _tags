@@ -1,8 +1,9 @@
 #true: warn(@5@8@10@11@12@14@23@24@26@29@40), bin_annot, safe_string
-true:  bin_annot, safe_string
+true:  bin_annot, safe_string, debug
 
 "src": include
-<src/*.{ml,mli,byte,native}>: package(ppx_tools.metaquot), package(ppx_deriving.api)
-#<src_test/test_ppx_m*.{ml,byte,native}>: debug, package(oUnit), use_morphism
-<src/GT*>: use_gt
-<src_test/test_ppx_gt.{ml,byte,native}>: debug, package(oUnit), use_gt
+
+#<src/GT*>: use_gt
+<src/parsetree_hack.*>: package(compiler-libs.common)
+<src/ppx_deriving_gt.{ml,mli,byte,native}>: package(ppx_tools.metaquot,ppx_deriving.api)
+<src_test/test_ppx_gt.{ml,byte,native}>: package(oUnit), use_gt
