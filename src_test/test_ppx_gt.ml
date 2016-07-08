@@ -2,14 +2,35 @@
 (* let () = *)
 (*   print_endline @@ GT.(show xxx) (XXX 666) *)
 
-type 'a logic = Var of GT.int |  Value of 'a [@@deriving gt { show } ]
+type 'a logic = Var of int | Value of 'a [@@deriving gt { show } ]
+
+type t = N | S of t logic [@@deriving gt { show } ]
+
+type 'a llist = Nil | Cons of 'a logic * 'a llist logic [@@deriving gt { show } ]
+
+
+
+
+(* type lam = X of string logic | App of lam logic * lam logic | Abs of string logic * lam logic [@@deriving gt { show } ] *)
+(* type typ = V of string logic | Arr of typ logic * typ logic  [@@deriving gt { show } ] *)
+(* type token = Id | Add | Mul [@@deriving gt { show } ] *)
+(* type expr  = I | A of expr logic * expr logic | M of expr logic * expr logic [@@deriving gt { show } ] *)
+(* type t = N | A of t logic [@@deriving gt { show } ] *)
+
+
+
+(* type lam = X of string logic | App of lam logic * lam logic | Abs of string logic * lam logic [@@deriving gt { show } ] *)
+(* type typ = V of string logic | Arr of typ logic * typ logic  [@@deriving gt { show } ] *)
+
+(* type token = Id | Add | Mul [@@deriving gt { show } ] *)
+(* type expr  = I | A of expr logic * expr logic | M of expr logic * expr logic [@@deriving gt { show } ] *)
 
 (* type nat = O | S of nat logic [@@deriving gt { show } ] *)
-type 'a nat2 =
-  | JustAlpha of 'a
-  | Myself of 'a nat2
-  | LogicMyself of 'a nat2 logic
-  | LogicLogicMyself of 'a nat2 logic logic [@@deriving gt { show } ]
+(* type 'a nat2 = *)
+(*   | JustAlpha of 'a *)
+(*   | Myself of 'a nat2 *)
+(*   | LogicMyself of 'a nat2 logic *)
+(*   | LogicLogicMyself of 'a nat2 logic logic [@@deriving gt { show } ] *)
 
 (* class type virtual ['a,'ia,'sa,'inh,'syn] logic_tt = *)
 (*   object *)
@@ -235,11 +256,7 @@ type 'a nat2 =
 (*   } *)
 
 
-(* type lam = X of string logic | App of lam logic * lam logic | Abs of string logic * lam logic [@@deriving gt { show } ] *)
-(* type typ = V of string logic | Arr of typ logic * typ logic  [@@deriving gt { show } ] *)
-(* type token = Id | Add | Mul [@@deriving gt { show } ] *)
-(* type expr  = I | A of expr logic * expr logic | M of expr logic * expr logic [@@deriving gt { show } ] *)
-(* type t = N | A of t logic [@@deriving gt { show } ] *)
+
 
 (* class type virtual ['a,'ia,'sa,'inh,'syn] logic_tt = *)
 (*   object *)

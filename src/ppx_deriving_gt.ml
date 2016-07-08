@@ -199,6 +199,13 @@ let rec expr_of_typ quoter typ =
       raise_errorf ~loc:ptyp_loc "%s cannot be derived for %s"
                    deriver (Ppx_deriving.string_of_core_type typ)
  *)
+
+let papp_simple = ""
+let parr_simple = ""
+
+(* let papp_simple = Papp_simple *)
+(* let parr_simple = Parr_simple *)
+
 module Exp = struct
   include Exp
 
@@ -255,10 +262,10 @@ let str_of_type ~options ~path ({ ptype_params=type_params } as root_type) =
         let first_part =
           List.map (function ({ptyp_desc; _ },_) ->
             match ptyp_desc with
-            | Ptyp_var name -> (Papp_simple, [%expr GT.lift [%e Exp.ident @@ lid name]])
+            | Ptyp_var name -> (papp_simple, [%expr GT.lift [%e Exp.ident @@ lid name]])
             | _ -> assert false) root_type.ptype_params
         in
-        let second_part = List.map (fun typ -> (Papp_simple, typ)) lasts in
+        let second_part = List.map (fun typ -> (papp_simple, typ)) lasts in
         Exp.apply first (first_part @ second_part)
       in
       let make_params_app_namer ?(use_lift=false) ~namer first lasts =
@@ -269,10 +276,10 @@ let str_of_type ~options ~path ({ ptype_params=type_params } as root_type) =
         let first_part =
           List.map (function ({ptyp_desc; _ },_) ->
             match ptyp_desc with
-            | Ptyp_var name -> (Papp_simple, wrap name)
+            | Ptyp_var name -> (papp_simple, wrap name)
             | _ -> assert false) root_type.ptype_params
         in
-        let second_part = List.map (fun typ -> (Papp_simple, typ)) lasts in
+        let second_part = List.map (fun typ -> (papp_simple, typ)) lasts in
         Exp.apply first (first_part @ second_part)
       in
 
@@ -288,15 +295,15 @@ let str_of_type ~options ~path ({ ptype_params=type_params } as root_type) =
 
       let make_params_app first last =
          match root_type.ptype_params with
-         | [] -> Exp.apply first [ (Papp_simple, last) ]
+         | [] -> Exp.apply first [ (papp_simple, last) ]
          | params ->
            let res = Exp.apply first @@
              List.map (function ({ptyp_desc; _ },_) ->
                match ptyp_desc with
-               | Ptyp_var name -> (Papp_simple, Exp.ident @@ lid name)
+               | Ptyp_var name -> (papp_simple, Exp.ident @@ lid name)
                | _ -> assert false) params
            in
-           Exp.apply res [(Papp_simple, last)]
+           Exp.apply res [(papp_simple, last)]
       in
 
       let wrap_with_fa ?(use_lift=false) func lasts =
@@ -304,13 +311,13 @@ let str_of_type ~options ~path ({ ptype_params=type_params } as root_type) =
           List.map (function ({ptyp_desc; _ },_) ->
             match ptyp_desc with
             | Ptyp_var name ->
-              (Papp_simple,
+              (papp_simple,
                if use_lift then [%expr GT.lift [%e Exp.ident @@ lid ("f"^ name)]]
                else  Exp.ident @@ lid ("f"^ name)
               )
             | _ -> assert false) root_type.ptype_params
         in
-        let right = right @ (List.map (fun typ -> (Papp_simple, typ)) lasts) in
+        let right = right @ (List.map (fun typ -> (papp_simple, typ)) lasts) in
         let right = Exp.apply func right in
         make_params_lambda_fa right
       in
@@ -327,7 +334,7 @@ let str_of_type ~options ~path ({ ptype_params=type_params } as root_type) =
         List.fold_right (fun ({ptyp_desc},_) acc ->
           match ptyp_desc with
           | Ptyp_var n ->
-             Typ.(arrow Parr_simple
+             Typ.(arrow parr_simple
                [%type: [%t var@@ "i"^n] -> [%t var n] -> [%t var @@ "s"^n]]
                acc)
           | _ -> assert false) root_type.ptype_params typ
@@ -381,7 +388,7 @@ let str_of_type ~options ~path ({ ptype_params=type_params } as root_type) =
                       :: args2
           in
           let args2 = [Typ.var "inh"] @ args2 in
-          let ts = List.fold_right (Typ.arrow Parr_simple) args2 (Typ.var "syn") in
+          let ts = List.fold_right (Typ.arrow parr_simple) args2 (Typ.var "syn") in
 
           (Ctf.method_ constr_name Public Concrete ts,
            Cf.method_  (mknoloc constr_name) Public (Cfk_virtual ts) )
@@ -395,7 +402,7 @@ let str_of_type ~options ~path ({ ptype_params=type_params } as root_type) =
                       [%type: 'inh -> [%t using_type] -> 'syn ]
                     in
                     Ctf.method_ ("t_" ^ typename)  Public Concrete
-                      (List.fold_right (fun (_,_,x) acc -> Typ.arrow Parr_simple x acc) ts init)
+                      (List.fold_right (fun (_,_,x) acc -> Typ.arrow parr_simple x acc) ts init)
                   ]
         in
 
@@ -461,7 +468,7 @@ let str_of_type ~options ~path ({ ptype_params=type_params } as root_type) =
 
             Exp.case (Pat.construct (lid name') args_tuple) @@
             Exp.(apply (send (ident @@ lid "trans") ("c_"^name') )
-                 @@ List.map (fun x -> (Papp_simple,x))
+                 @@ List.map (fun x -> (papp_simple,x))
                    ([ [%expr inh]; [%expr (GT.make self subj tpo)] ] @ app_args)
                 )
           )
@@ -484,8 +491,9 @@ let str_of_type ~options ~path ({ ptype_params=type_params } as root_type) =
       let ans =
         [ Str.class_type [Ci.mk ~virt:Virtual ~params:default_params
                             (Location.mknoloc typename_tt) @@
-                          Cty.signature (Csig.mk any_typ tt_methods)]
-        ; Str.value Nonrecursive [Vb.mk (Pat.(constraint_ (var @@ mknoloc typename) gt_repr_typ)) gt_repr_body]
+                          Cty.signature (Csig.mk any_typ tt_methods) ]
+        ; Str.value Nonrecursive [Vb.mk (Pat.(constraint_ (var @@ mknoloc typename)
+                                                gt_repr_typ)) gt_repr_body ]
         ; Str.class_ [Ci.mk ~virt:Virtual ~params:default_params (mknoloc typename_t) @@
                       Cl.structure (Cstr.mk (Pat.var @@ mknoloc "this") t_methods)
                      ]
@@ -520,7 +528,38 @@ let str_of_type ~options ~path ({ ptype_params=type_params } as root_type) =
                 | [%type: GT.string] ->
                   [%expr GT.transform GT.string (new GT.show_string_t) ]
                 | [%type: [%t? t] list] ->
-                  [%expr GT.(transform list [%e helper t] (new show_list_t) ) ]
+                    [%expr GT.(transform list [%e helper t] (new show_list_t) ) ]
+
+                | {ptyp_desc=Ptyp_constr ({txt=Lident cname;_},
+                                          [{ptyp_desc=Ptyp_constr({txt=Lident argname;_},
+                                                                  _)
+                                           }]); _ }
+                  when argname = typename ->
+                    let head = List.fold_left
+                        (fun acc (tparam,_) ->
+                           match tparam with
+                           | {ptyp_desc=Ptyp_var alpha; _} ->
+                               [%expr [%e acc] [%e Exp.send [%expr subj.GT.t] alpha ] ]
+                           | _ -> assert false
+                        )
+                        [%expr GT.transform [%e Exp.ident@@lid argname]]
+                        root_type.ptype_params
+                    in
+                    [%expr GT.transform
+                             [%e Exp.ident @@ lid cname]
+                             ([%e head] this)
+                             [%e Exp.(new_ @@ lid @@ sprintf "show_%s_t" cname) ]
+                    ]
+
+                | {ptyp_desc=Ptyp_constr ({txt=Lident cname;_},
+                                          [typ_arg1]); }
+                  ->
+                    [%expr GT.transform
+                             [%e Exp.ident @@ lid cname]
+                             [%e helper  typ_arg1 ]
+                             [%e Exp.(new_ @@ lid @@ sprintf "show_%s_t" cname) ]
+                    ]
+
                 | _ ->
                   [%expr [%e Exp.(field (ident @@ lid reprname) (lid "GT.fx")) ] ]
                 in
@@ -545,7 +584,7 @@ let str_of_type ~options ~path ({ ptype_params=type_params } as root_type) =
                      (String.concat ", " [%e Exp.make_list xs ] ^ ")")
                  ]
             in
-            let e = List.fold_right (fun name acc -> Exp.fun_ Parr_simple None (Pat.var @@ mknoloc name) acc) args body in
+            let e = List.fold_right (fun name acc -> Exp.fun_ parr_simple None (Pat.var @@ mknoloc name) acc) args body in
             let e = [%expr fun inh subj -> [%e e] ] in
 
             Cf.method_ (mknoloc @@ "c_"^name') Public (Cfk_concrete (Fresh, e))
@@ -560,12 +599,10 @@ let str_of_type ~options ~path ({ ptype_params=type_params } as root_type) =
                            match ptyp_desc with
                            | Ptyp_var name ->
                              [%type: ([%t Typ.var name] -> string) -> [%t acc]]
-                             (* Typ.(arrow Parr_simple (var name) acc) *)
                            | _ -> assert false
                          )
                           root_type.ptype_params
                           [%type: [%t using_type ] -> string ]
-                          (* [%type: pizda ] *)
                     ]
                     >
             ]
@@ -576,7 +613,7 @@ let str_of_type ~options ~path ({ ptype_params=type_params } as root_type) =
                           Cty.signature (Csig.mk any_typ [])
                          ]
         ; Str.class_ [Ci.mk ~virt:Concrete ~params:[Typ.var "a",Invariant] (mknoloc proto_class_name)
-                        (Cl.fun_ Parr_simple None (Pat.var @@ mknoloc "env") @@
+                        (Cl.fun_ parr_simple None (Pat.var @@ mknoloc "env") @@
                          Cl.structure (Cstr.mk (Pat.var @@ mknoloc "this") show_proto_meths)
                         )
                      ]
@@ -585,7 +622,7 @@ let str_of_type ~options ~path ({ ptype_params=type_params } as root_type) =
                         (Cl.let_ Nonrecursive [Vb.mk (Pat.var @@ mknoloc "self") [%expr Obj.magic (ref ())] ] @@
                          Cl.structure (Cstr.mk (Pat.var @@ mknoloc "this")
                                          [ inherit_field
-                                         ; Cf.inherit_ Fresh (Cl.apply (Cl.constr (lid proto_class_name) [Typ.var "a"]) [(Papp_simple,[%expr self])]) None
+                                         ; Cf.inherit_ Fresh (Cl.apply (Cl.constr (lid proto_class_name) [Typ.var "a"]) [(papp_simple,[%expr self])]) None
                                          ; Cf.initializer_ [%expr self := (this :> [%t Typ.constr (lid show_typename_t) [Typ.var "a"] ]) ]
                                          ])
                         )
