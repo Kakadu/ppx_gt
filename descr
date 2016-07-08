@@ -1,2 +1,5 @@
-Generic transformes in PPX for OCaml >= 4.02
+Generic transformes in PPX for OCaml >= 4.02.
 
+Just another variation about ppx_deriving. Based on original generic-transformers by Dmitrii Boulytchev.
+
+https://github.com/dboulytchev/generic-transformers
