@@ -508,64 +508,42 @@ let str_of_type ~options ~path ({ ptype_params=type_params } as root_type) =
           let f { pcd_name = { txt = name' }; pcd_args } =
             let args = List.mapi (fun n _ -> sprintf "p%d" n) pcd_args in
 
-            let body = (*
-              let expr_of_arg reprname =
-                let f x = match x with
-                  | [%type: int] -> assert false
-                in
-                let rec helper reprexpr = function
-                | Ptyp_var _alpha ->
-                   [%expr [%e Exp.(field reprexpr (lid "GT.fx")) ] () ]
-
-                | Ptyp_constr ({txt=Lident "int";_}, [])
-                | Ptyp_constr ({txt=Ldot (Lident "GT", "int");_}, []) ->
-                   [%expr GT.transform GT.int (new GT.show_int_t) () [%e reprexpr] ]
-                | Ptyp_constr ({txt=Ldot (Lident "GT", "string");_}, [])
-                | Ptyp_constr ({txt=Lident "string";_}, []) ->
-                   [%expr GT.transform GT.string (new GT.show_string_t) () reprexpr ]
-                | Ptyp_constr ({txt;_}, params) when (txt = Lident typename (* && params = List.map fst type_params *)) ->
-                  [%expr [%e Exp.(field (ident @@ lid reprname) (lid "GT.fx")) ] () ]
-                (* | typ when typ = using_type.ptyp_desc -> *)
-                (*   [%expr [%e Exp.(field (ident @@ lid reprname) (lid "GT.fx")) ] () ] *)
-                 | Ptyp_constr ({txt=Lident cname;_}, [param1]) ->
-                   [%expr GT.transform [%e Exp.ident @@ lid cname] [%e helper reprexpr param1.ptyp_desc ] [%e Exp.ident @@ lid @@ sprintf "show_%s_t" cname ] ]
-                  (* assert false *)
-
-                |  _ ->
-                  [%expr [%e Exp.(field (ident @@ lid reprname) (lid "GT.fx")) ] () ]
-                  (* assert false *)
-                in
-                helper Exp.(ident @@ lid reprname)
-              in *)
-              let expr_of_arg reprname = function
-                | Ptyp_var _alpha ->
-                   [%expr [%e Exp.(field (ident @@ lid reprname) (lid "GT.fx")) ]
-                          () ]
-                | Ptyp_constr ({txt=Lident "int";_}, [])
-                | Ptyp_constr ({txt=Ldot (Lident "GT", "int");_}, []) ->
-                   [%expr GT.transform GT.int (new GT.show_int_t) () [%e Exp.ident @@ lid reprname] ]
-                | Ptyp_constr ({txt=Ldot (Lident "GT", "string");_}, [])
-                | Ptyp_constr ({txt=Lident "string";_}, []) ->
-                   [%expr GT.transform GT.string (new GT.show_string_t) () [%e Exp.ident @@ lid reprname] ]
+            let body =
+              let expr_of_arg reprname typ =
+                let rec helper = function
+                | {ptyp_desc=Ptyp_var _alpha; _} ->
+                   [%expr [%e Exp.(send [%expr subj.GT.t] _alpha) ] ]
+                | [%type: int]
+                | [%type: GT.int] ->
+                   [%expr GT.transform GT.int (new GT.show_int_t) ]
+                | [%type: string]
+                | [%type: GT.string] ->
+                  [%expr GT.transform GT.string (new GT.show_string_t) ]
+                | [%type: [%t? t] list] ->
+                  [%expr GT.(transform list [%e helper t] (new show_list_t) ) ]
                 | _ ->
-                    [%expr [%e Exp.(field (ident @@ lid reprname) (lid "GT.fx")) ] () ]
+                  [%expr [%e Exp.(field (ident @@ lid reprname) (lid "GT.fx")) ] ]
+                in
+
+                match typ with
+                | {ptyp_desc=Ptyp_var _alpha; _} ->
+                  [%expr [%e Exp.(field (ident @@ lid reprname) (lid "GT.fx")) ] () ]
+                | _ -> [%expr [%e helper typ] () [%e Exp.ident @@ lid reprname] ]
               in
+
               match List.combine args pcd_args with
               | [] -> Exp.constant (Const_string (name', None))
               | [(name,argt)] -> [%expr
                             [%e Exp.constant (Const_string (name'^" ", None)) ] ^
-                            [%e expr_of_arg name argt.ptyp_desc ]
+                            [%e expr_of_arg name argt]
                                  ]
               | args ->
-                 let xs = List.map (fun (name,arg) -> expr_of_arg name arg.ptyp_desc) args in
+                 let xs = List.map (fun (name,arg) -> expr_of_arg name arg) args in
                  (* [%expr 1] *)
                  [%expr
                      [%e Exp.constant (Const_string (name'^" (", None)) ] ^
                      (String.concat ", " [%e Exp.make_list xs ] ^ ")")
                  ]
-                 (* List.fold_right (fun e acc -> Exp.construct (lid "::") Some (pe)None) xs *)
-                 (*                 (Exp.construct (lid "[]") None) *)
-                 (* assert false *)
             in
             let e = List.fold_right (fun name acc -> Exp.fun_ Parr_simple None (Pat.var @@ mknoloc name) acc) args body in
             let e = [%expr fun inh subj -> [%e e] ] in
@@ -601,7 +579,8 @@ let str_of_type ~options ~path ({ ptype_params=type_params } as root_type) =
                         (Cl.fun_ Parr_simple None (Pat.var @@ mknoloc "env") @@
                          Cl.structure (Cstr.mk (Pat.var @@ mknoloc "this") show_proto_meths)
                         )
-                     ](*
+                     ]
+
         ; Str.class_ [Ci.mk ~virt:Concrete ~params:[Typ.var "a",Invariant] (mknoloc show_typename_t)
                         (Cl.let_ Nonrecursive [Vb.mk (Pat.var @@ mknoloc "self") [%expr Obj.magic (ref ())] ] @@
                          Cl.structure (Cstr.mk (Pat.var @@ mknoloc "this")
@@ -629,7 +608,7 @@ let str_of_type ~options ~path ({ ptype_params=type_params } as root_type) =
                           (* ] *)
                      end }
                ] ]
-            *)
+
         ]
       in
 
