@@ -1,5 +1,6 @@
 build:
 	cp pkg/META.in pkg/META
+	ocamlbuild -use-ocamlfind src/GT.cmo src/GT.cmx
 	ocaml pkg/build.ml native=true native-dynlink=true
 
 derive = $(shell ocamlfind query ppx_deriving.show)
