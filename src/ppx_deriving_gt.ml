@@ -294,10 +294,6 @@ let str_of_type ~options ~path ({ ptype_params=type_params } as root_type) =
   in
 
   let show_decls root_type =
-    let typename    = root_type.ptype_name.txt in
-    let typename_t  = typename ^ "_t"  in
-    (* let typename_tt = typename ^ "_tt" in *)
-    (* let t_typename  = "t_" ^ typename  in *)
     let show_typename_t = "show_" ^ typename_t in
 
     match root_type.ptype_kind with
@@ -428,25 +424,6 @@ let str_of_type ~options ~path ({ ptype_params=type_params } as root_type) =
                                          ])
                         )
                      ]
-          (* gcata for show *)
-        ; Str.value Nonrecursive
-            [Vb.mk (Pat.(constraint_ (var @@ mknoloc typename) gt_repr_typ_show))
-               [%expr
-                   { GT.gcata = [%e Exp.(field (ident @@ lid typename) (lid "GT.gcata")) ];
-                     GT.plugins = object
-                        method show =
-                          [%e wrap_with_fa ~use_lift:true
-                                [%expr GT.transform [%e Exp.ident @@ lid typename]]
-                                [ (Exp.new_ (lid show_typename_t)); [%expr ()] ]
-                          ]
-                          (* [%e make_params_lambda_fa @@ *)
-                          (*     make_params_app_with_lift *)
-                          (*       [%expr GT.transform [%e Exp.ident @@ lid typename]] *)
-                          (*       [ (Exp.new_ (lid show_typename_t)); [%expr ()] ] *)
-                          (* ] *)
-                     end }
-               ] ]
-
         ]
     | _ -> failwith "Type is not supported. show not happend"
   in
@@ -664,9 +641,25 @@ let str_of_type ~options ~path ({ ptype_params=type_params } as root_type) =
         ]
       in
 
+      let footer =
+        (* gcata for show *)
+        Str.value Nonrecursive
+          [(* Vb.mk (Pat.(constraint_ (var @@ mknoloc typename) gt_repr_typ_show)) *)
+           (*   [%expr *)
+           (*         { GT.gcata = [%e Exp.(field (ident @@ lid typename) (lid "GT.gcata")) ]; *)
+           (*           GT.plugins = object  *)
+           (*              method show = *)
+           (*                [%e wrap_with_fa ~use_lift:true *)
+           (*                      [%expr GT.transform [%e Exp.ident @@ lid typename]] *)
+           (*                      [ (Exp.new_ (lid show_typename_t)); [%expr ()] ] *)
+           (*                ] *)
+           (*           end } *)
+           (*   ] *) ]
+      in
+
 
       let ans = if not gt_show then ans else ans @ (show_decls root_type) in
-      ans
+      ans @ [footer]
 
   | _ -> raise_errorf ~loc:root_type.ptype_loc "%s: some error" deriver
   (*
