@@ -27,14 +27,28 @@ let () = dispatch (
     (* flag ["ocaml";"link";"native";"use_gt"] & *)
     (* A (ppx_loc ^ "/ppx_deriving_gt.cmxa") ; *)
 
+    rule "Generate a cmxs from a cmxa"
+      ~dep:"%.cmxa"
+      ~prod:"%.cmxs"
+      ~insert:`top
+      (fun env _ ->
+         Cmd (S [ !Options.ocamlopt
+                ; A "-shared"
+                ; A "-linkall"
+                ; A "-I"; A (Pathname.dirname (env "%"))
+                ; A (env "%.cmxa")
+                ; A "-o"
+                ; A (env "%.cmxs")
+                ]));
+
     flag ["ocaml"; "link"; "use_gt"] & S [  A"-I"; A"src";    A"GT.cmo" ];
     flag ["ocaml"; "compile"; "use_gt"] &
     S[(* A"-ppx"; A"ocamlfind ppx_import/ppx_import"; *)
       A"-I"; A ppx_loc ;
       A"-dsource";
       A"-ppx"; A("ocamlfind ppx_deriving/ppx_deriving "^
-                 "src/ppx_deriving_gt.cma "^
-                 (std_deriver "ppx_deriving_show.cma")) ;
+                 "src/ppx_deriving_gt.cma "(* ^ *)
+                 (* (std_deriver "ppx_deriving_show.cma") *)) ;
      ];
 
 
